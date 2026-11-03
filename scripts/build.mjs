@@ -18,7 +18,7 @@ export async function scan(root){
  }
  await walk();
  const ids=albums.flatMap(a=>a.tracks.map(t=>t.id));
- if(new Set(ids).size!==ids.length)throw Error('存在去除数字前缀后同名的歌曲，请修改名称以保证收藏标识唯一。');
+ if(new Set(ids).size!==ids.length)throw Error('存在去除数字前缀后同名的歌曲，请修改名称以保证歌曲标识唯一。');
  return albums;
 }
 if(process.argv[1]===new URL(import.meta.url).pathname){
@@ -29,7 +29,15 @@ if(process.argv[1]===new URL(import.meta.url).pathname){
  for(const name of (await readdir('public')).sort())hash.update(await readFile(path.join('public',name)));
  const version=hash.digest('hex').slice(0,12);
  await writeFile('dist/library.json',JSON.stringify({version,albums},null,2));
- const sw=await readFile('dist/sw.js','utf8');await writeFile('dist/sw.js',sw.replace('__VERSION__',version));
+ let html=await readFile('dist/index.html','utf8');
+ let sw=await readFile('dist/sw.js','utf8');
+ for(const name of ['app.js','style.css']){
+  const ext=path.extname(name);const versioned=name.slice(0,-ext.length)+'.'+version+ext;
+  await cp(path.join('dist',name),path.join('dist',versioned));
+  html=html.replaceAll(name,versioned);sw=sw.replaceAll(name,versioned);
+ }
+ await writeFile('dist/index.html',html);
+ await writeFile('dist/sw.js',sw.replace('__VERSION__',version));
  console.log(`已构建 ${albums.length} 个歌单、${idsCount(albums)} 首歌曲 → dist/`);
 }
 function idsCount(a){return a.reduce((n,x)=>n+x.tracks.length,0)}
